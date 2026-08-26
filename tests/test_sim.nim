@@ -612,10 +612,12 @@ const FixturePath = currentSourcePath().parentDir().parentDir() /
   "tools" / "ci" / "fixtures" / "sixmax_audit.replay"
 
 proc fixtureSay(seat: int): string =
-  ## Exactly MaxSayLen runes of multi-byte text: the worst case the speech
-  ## bubble and the strict UTF-8 gate ever have to survive.
+  ## Exactly MaxSayLen runes of multi-byte text, and NOT the ellipsis
+  ## `truncateRunes` leaves behind: a remark the server passed at full length
+  ## is the worst case the speech bubble has to render whole, so the viewer
+  ## smoke can count every drawn ellipsis as a defect.
   let body = ("\u{1F0A1}\u00e9\u4f60 seat " & $seat & " ").repeat(60)
-  truncateRunes(body, MaxSayLen)
+  $body.toRunes()[0 ..< MaxSayLen]
 
 proc buildSixMaxFixture(): string =
   ## A six-max Hold'em replay with TWO flagged pairs and a full-cap `say` on

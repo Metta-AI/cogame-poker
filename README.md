@@ -35,7 +35,7 @@ What is the same at every rung:
   had. Deal luck cancels inside the pair. The mirror is invisible to the seats.
 - **Anonymous aliases.** Seats play as Sprocket, Gizmo, Ratchet… No policy name
   ever enters a prompt. The spectator layer maps them back.
-- **Table talk.** Every decision may carry one public line (`say`, ≤ 160 runes).
+- **Table talk.** Every decision may carry one public line (`say`, ≤ 120 runes).
 
 ### Score
 
@@ -152,7 +152,7 @@ for t in tests/*.nim; do nim r --hints:off --path:src "$t"; done
 - **`wasm-viewer`** — builds the static bundle and **executes** it in headless
   Chromium twice: once against the smoke replay, once against the committed
   six-max fixture `tools/ci/fixtures/sixmax_audit.replay` (two flagged pairs and
-  a full-160-rune `say` on every seat, regenerated and diffed by
+  a full-120-rune `say` on every seat, regenerated and diffed by
   `tests/test_sim.nim`). Both with `--soak 12 --strict-text-bounds`.
 
 `.github/workflows/coworld-release.yml` (dispatch) runs

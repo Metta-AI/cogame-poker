@@ -8,8 +8,11 @@ import std/[json, strutils, unicode]
 
 const
   MaxSeats* = 6
-  ## What the viewer's speech bubble can actually show (~4 wrapped lines).
-  MaxSayLen* = 160
+  ## What the viewer's speech bubble can actually show: 6 wrapped lines of
+  ## 300 px, measured in the 13 px font the bubble draws in
+  ## (`BUBBLE_LINES`/`BUBBLE_MAX_W`, client/renderer.js, sized from THIS cap).
+  ## Raise one without the other and a full-cap remark is cut on screen.
+  MaxSayLen* = 120
   ## Server-side cap on the operator prompt a player delivers.
   MaxPromptLen* = 4000
   ## Table alias cap.

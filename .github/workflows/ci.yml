@@ -416,7 +416,7 @@ jobs:
       # scorebug plate, the audit card and the worst-case speech bubble
       # unexercised, and nothing in CI would ever draw them (cogchemists,
       # 2026-08-24). This second invocation plays a committed six-max replay
-      # with two flagged pairs and a full-160-rune `say` on every seat --
+      # with two flagged pairs and a full-120-rune `say` on every seat --
       # regenerated and diffed by tests/test_sim.nim, so it cannot drift.
       - name: Load the six-max audit fixture in the same bundle
         run: |

@@ -127,7 +127,15 @@
   // it so the whole seat scales as one block.
   var SEAT_BASE = 84;
   var CARD_W = 30, CARD_H = 42;
-  var BUBBLE_MAX_W = 220, BUBBLE_LINES = 4, BUBBLE_LINE_H = 16;
+  // The bubble is sized from the cap the SERVER enforces on a `say`
+  // (MaxSayLen = 120 runes, src/poker/types.nim), measured in the font the
+  // bubble draws in (13 px 'rajdhani'): the widest 120 runes that cap admits
+  // — every rune a full-width CJK glyph or a playing-card emoji — measure
+  // ~1600 px, and 6 lines x 300 px hold that with the wrap's per-line
+  // remainder to spare. A cut LABEL is a design choice; a cut SENTENCE is a
+  // defect, so a server-capped remark must never reach drawBubble's clip.
+  // Grow these together with MaxSayLen, never one without the other.
+  var BUBBLE_MAX_W = 300, BUBBLE_LINES = 6, BUBBLE_LINE_H = 16;
   var BUBBLE_PAD = 8, BUBBLE_TAIL = 8, BUBBLE_RISE = 0.69;
 
   function bubbleHeight(lines) {
@@ -652,25 +660,53 @@
     ctx.restore();
   }
 
+  // Wraps a remark to `maxWidth` on whitespace, and splits a single word that
+  // is wider than a whole line on RUNE (code point) boundaries. Whitespace
+  // alone is not enough: Chinese, Japanese and a wall of emoji carry no
+  // spaces at all, and a whitespace-only wrap draws them as one line running
+  // off the canvas.
+  function wrapBubble(ctx, text, maxWidth) {
+    var lines = [];
+    var line = "";
+    function flush() {
+      if (line !== "") {
+        lines.push(line);
+        line = "";
+      }
+    }
+    text.split(/\s+/).forEach(function (word) {
+      if (word === "") return;
+      var probe = line ? line + " " + word : word;
+      if (ctx.measureText(probe).width <= maxWidth) {
+        line = probe;
+        return;
+      }
+      flush();
+      if (ctx.measureText(word).width <= maxWidth) {
+        line = word;
+        return;
+      }
+      Array.from(word).forEach(function (rune) {
+        if (line !== "" && ctx.measureText(line + rune).width > maxWidth) {
+          flush();
+        }
+        line += rune;
+      });
+    });
+    flush();
+    return lines;
+  }
+
   function drawBubble(ctx, canvasWidth, x, y, text, alpha, scale) {
     var s = scale || 1;
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.font = Math.round(13 * s) + "px 'rajdhani', system-ui, sans-serif";
-    var maxWidth = BUBBLE_MAX_W * s;
-    var words = text.split(/\s+/);
-    var lines = [];
-    var line = "";
-    words.forEach(function (word) {
-      var probe = line ? line + " " + word : word;
-      if (ctx.measureText(probe).width > maxWidth && line) {
-        lines.push(line);
-        line = word;
-      } else {
-        line = probe;
-      }
-    });
-    if (line) lines.push(line);
+    // Never wider than the canvas: the box is clamped into frame below, and a
+    // box wider than the frame would push its own text off the edge.
+    var maxWidth = Math.min(BUBBLE_MAX_W * s,
+      canvasWidth - 12 - BUBBLE_PAD * 2 * s);
+    var lines = wrapBubble(ctx, text, maxWidth);
     var overflow = lines.length > BUBBLE_LINES;
     lines = lines.slice(0, BUBBLE_LINES);
     if (overflow && lines.length) {

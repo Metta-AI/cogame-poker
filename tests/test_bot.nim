@@ -134,7 +134,7 @@ suite "degrade, never hang":
     check match.sim.seats[seat].folded
 
 suite "hostile model output":
-  test "a 5 kB emoji say is capped at 160 runes and the replay stays UTF-8":
+  test "a 5 kB emoji say is capped at 120 runes and the replay stays UTF-8":
     var config = fixture(vHoldem, 3, 15)
     var match = initMatch(config)
     let seat = match.sim.actingSeat
