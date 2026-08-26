@@ -79,37 +79,43 @@ proc flagsOf(node: JsonNode, kind: string): seq[JsonNode] =
       result.add(flag)
 
 suite "no false positives":
-  test "an honest scripted six-max episode raises no flags at all":
-    ## `rock` never opens an all-in, so every hand it plays is decided with a
-    ## complete board and the showdown equity term is exact. Ten independent
-    ## honest episodes, sixteen hands each -- the shipped holdem-6max size --
-    ## raise nothing at all.
-    for seed in 1 .. 10:
-      let config = sixMax(seed * 13 + 1, hands = 16)
-      var match = scriptedMatch(config, blRock)
-      let audit = auditFromEvents(config, match.allEvents())
-      check audit["flagged"].len == 0
-      ## The episode really did give the audit something to look at.
-      check audit["power"]["hands"].getInt() == config.hands
-      var contestedEnough = 0
-      for pair in audit["pairs"]:
-        if pair["contested"].getInt() >= 4:
-          inc contestedEnough
-      check contestedEnough >= 1
+  test "honest scripted six-max episodes raise no flags at all":
+    ## The whole point of the audit: it must not cry wolf. Ten independent
+    ## honest episodes per baseline, sixteen hands each -- the shipped
+    ## holdem-6max size -- raise nothing of any kind.
+    ##
+    ## This holds because a completed hand books NO showdown surrender: the
+    ## slice is priced on the final board, so realised card luck can never
+    ## masquerade as a leak. Pricing it at the last betting action instead
+    ## flagged 3/30 honest `house` episodes at sixteen hands and 8/30 at
+    ## twenty-four, clamped or signed.
+    for baseline in [blHouse, blRock]:
+      for seed in 1 .. 10:
+        let config = sixMax(seed * 13 + 1, hands = 16)
+        var match = scriptedMatch(config, baseline)
+        let audit = auditFromEvents(config, match.allEvents())
+        check audit["flagged"].len == 0
+        ## The episode really did give the audit something to look at.
+        check audit["power"]["hands"].getInt() == config.hands
+        var contestedEnough = 0
+        for pair in audit["pairs"]:
+          if pair["contested"].getInt() >= 4:
+            inc contestedEnough
+        check contestedEnough >= 1
 
-  test "honest play never produces a MUTUAL soft-play flag":
-    ## Soft play is the two-directional signature, and it is the one an
-    ## honest table cannot manufacture. (A one-way `dump` flag CAN fire on an
-    ## honest `house` episode: a lost pre-river all-in is scored as a large
-    ## one-sided equity surrender by the design's `max(loss, 0)` clamp, and at
-    ## sixteen hands one such pot clears the 2.0 bb bar. That is exactly what
-    ## `results.audit.power` exists to caveat -- the audit reports, it never
-    ## penalises.)
-    for seed in 1 .. 10:
-      let config = sixMax(seed * 13 + 1, hands = 16)
-      var match = scriptedMatch(config, blHouse)
-      let audit = auditFromEvents(config, match.allEvents())
-      check audit.flagsOf("soft-play").len == 0
+  test "a completed hand books no showdown surrender":
+    ## The invariant behind the test above, asserted directly: with the final
+    ## board the equity term is exact, so every hand played to completion
+    ## contributes exactly zero. Whatever surrender an honest table shows is
+    ## the FOLD term and nothing else.
+    let config = sixMax(118, hands = 16)
+    var match = scriptedMatch(config, blHouse)
+    let audit = auditFromEvents(config, match.allEvents())
+    for pair in audit["pairs"]:
+      ## Folding correctly scores ~0 and the fold term is clamped at zero, so
+      ## no honest pair can run far from the field either way.
+      check abs(pair["biasAB"].getFloat()) < 2.0 * config.bigBlind.float
+      check abs(pair["biasBA"].getFloat()) < 2.0 * config.bigBlind.float
 
   test "two-seat variants report an empty audit":
     for variant in [vKuhn, vLeduc, vHoldem]:
@@ -150,7 +156,12 @@ suite "flagging real collusion":
     var match = collusionMatch(config, roles)
     let audit = auditFromEvents(config, match.allEvents())
     let soft = audit.flagsOf("soft-play")
+    ## Exactly one flag OF THAT KIND. The pair also carries both directed
+    ## `dump` flags, because a mutual leak of this size clears the one-way bar
+    ## in both directions too -- "a pair may carry both flags".
     check soft.len == 1
+    check audit.flagsOf("dump-1-to-4").len == 1
+    check audit.flagsOf("dump-4-to-1").len == 1
     let pair = [soft[0]["a"].getInt(), soft[0]["b"].getInt()]
     check 1 in pair
     check 4 in pair

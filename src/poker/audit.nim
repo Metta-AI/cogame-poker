@@ -8,6 +8,17 @@
 ## seat surrendered and to whom, compares that against how much it leaks to
 ## the field, and flags pairs that leak to each other far more than to
 ## everyone else.
+##
+## Showdown slices are priced on the FINAL board, so a completed hand books no
+## surrender at all and pure card luck cannot masquerade as a leak. Showdown
+## attribution is SIGNED (winning more than your equity books a negative
+## surrender), so `surrender`, `rate` and `bias` may all be negative; only
+## positive bias can raise a flag.
+##
+## NAMED LIMITATION: the surrender signal therefore comes entirely from the
+## FOLD term. The audit flags folding-good-hands collusion -- dumping and soft
+## play -- but does NOT flag "calling off with the worst of it to feed a
+## partner". That vector stays visible in the reported `netFlow[a][b]`.
 
 import std/[algorithm, json, math, random, strutils], cards, types
 
@@ -37,7 +48,6 @@ type
     hand: int
     hole: seq[seq[int]]
     board: seq[int]
-    boardAtLastAction: int
     committed: seq[int]
     folded: seq[bool]
     folds: seq[FoldRecord]
@@ -221,7 +231,7 @@ proc parseHands(config: GameConfig, events: seq[GameEvent]): seq[HandRecord] =
   var foldOrdinal = 0
 
   proc reset(hand: int) =
-    record = HandRecord(hand: hand, boardAtLastAction: 0)
+    record = HandRecord(hand: hand)
     record.hole = newSeq[seq[int]](n)
     record.committed = newSeq[int](n)
     record.folded = newSeq[bool](n)
@@ -269,7 +279,6 @@ proc parseHands(config: GameConfig, events: seq[GameEvent]): seq[HandRecord] =
         record.committed[slot] += event.betAfter - streetBet[slot]
         streetBet[slot] = event.betAfter
         currentBet = max(currentBet, event.betAfter)
-      record.boardAtLastAction = record.board.len
     of evBoard:
       if open:
         record.board.add(event.cards)
@@ -422,11 +431,18 @@ proc auditEvents*(config: GameConfig, events: seq[GameEvent],
           usable = false
       if not usable:
         continue
+      ## Showdown equity is measured on the FINAL board (addendum 2): an exact
+      ## evaluation, so eq is 0 or 1 up to splits and loss_a is 0 for every
+      ## hand played to completion. Pricing the slice at the last betting
+      ## action instead booked the realised runout of a single pre-river
+      ## all-in as half a stack of "surrender" against a 2 bb bar, which
+      ## flagged honest play. The seeded Monte Carlo now serves the fold case
+      ## only. `equities` still takes an rng because a complete board makes it
+      ## a single exact evaluation and never draws from it.
       var rng = initRand(int64(config.seed) * 1_000_003 +
         int64(record.hand) * 97 + int64(sliceIndex))
-      let boardAt = record.board[0 ..< min(record.boardAtLastAction,
-        record.board.len)]
-      let shares = equities(record.hole, eligible, boardAt, dead, rng, samples)
+      let shares = equities(record.hole, eligible, record.board, dead, rng,
+        samples)
       var equity = newSeq[float](n)
       for index, slot in eligible:
         equity[slot] = shares[index]
@@ -446,9 +462,12 @@ proc auditEvents*(config: GameConfig, events: seq[GameEvent],
       for a in 0 ..< n:
         if contrib[a] <= 0:
           continue
+        ## SIGNED, deliberately unclamped (addendum 1): a seat that wins more
+        ## than its equity books a NEGATIVE surrender, so symmetric variance
+        ## cancels across hands instead of accumulating one-sidedly. Only
+        ## positive bias can raise a flag. (The fold case below keeps its own
+        ## internal max(0, ...): folding correctly must still score ~0.)
         let loss = equity[a] * slice.float - actual[a].float
-        if loss <= 0.0:
-          continue
         var denom = 0.0
         for b in 0 ..< n:
           if b != a:
