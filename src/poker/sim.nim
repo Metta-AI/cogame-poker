@@ -25,11 +25,15 @@ const
   MinHands* = 2
   GameVersion* = 1
   ## Share of the platform's episode timeout spent playing, and the hard stop.
-  ## The whole episode -- play, settle and score -- must land inside 60% of
-  ## the timeout, so the HARD stop is 0.60 (720 s of 1200 s) and the soft one
-  ## sits a pair-boundary's worth of play below it at 0.55 (660 s).
+  ## The 60% bound is on the TRUE worst-case settle, and the hard guard is
+  ## checked BEFORE a decision: a decision admitted just under the threshold
+  ## still runs to completion. So the threshold nets one worst-case decision
+  ## off 60% -- 2.1 s spacing floor + two 20 s LLM attempts + the turn delay
+  ## and the settle write, ~45 s -- and the hard stop is 0.56 (672 s of
+  ## 1200 s), which settles by 720 s = 60%. The soft stop sits a pair
+  ## boundary's worth of play below it at 0.55 (660 s).
   PlayBudgetFraction* = 0.55
-  HardDeadlineFraction* = 0.60
+  HardDeadlineFraction* = 0.56
   ## The game container is NOT given COWORLD_TIMEOUT_SECONDS; assume this.
   DefaultEpisodeTimeoutSeconds* = 1200.0
   ## Inter-decision wall spacing floor (the Bedrock sidecar caps an episode at
