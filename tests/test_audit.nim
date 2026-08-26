@@ -81,7 +81,7 @@ proc flagsOf(node: JsonNode, kind: string): seq[JsonNode] =
 suite "no false positives":
   test "honest scripted six-max episodes raise no flags at all":
     ## The whole point of the audit: it must not cry wolf. Ten independent
-    ## honest episodes per baseline, sixteen hands each -- the shipped
+    ## honest episodes per baseline, fourteen hands each -- the shipped
     ## holdem-6max size -- raise nothing of any kind.
     ##
     ## This holds because a completed hand books NO showdown surrender: the
@@ -91,7 +91,7 @@ suite "no false positives":
     ## twenty-four, clamped or signed.
     for baseline in [blHouse, blRock]:
       for seed in 1 .. 10:
-        let config = sixMax(seed * 13 + 1, hands = 16)
+        let config = sixMax(seed * 13 + 1, hands = 14)
         var match = scriptedMatch(config, baseline)
         let audit = auditFromEvents(config, match.allEvents())
         check audit["flagged"].len == 0
@@ -108,7 +108,7 @@ suite "no false positives":
     ## board the equity term is exact, so every hand played to completion
     ## contributes exactly zero. Whatever surrender an honest table shows is
     ## the FOLD term and nothing else.
-    let config = sixMax(118, hands = 16)
+    let config = sixMax(118, hands = 14)
     var match = scriptedMatch(config, blHouse)
     let audit = auditFromEvents(config, match.allEvents())
     for pair in audit["pairs"]:

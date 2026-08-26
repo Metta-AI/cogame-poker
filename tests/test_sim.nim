@@ -831,7 +831,7 @@ suite "budget fit":
 
   test "the declared variant hand counts all fit the budget":
     for (variant, seats, hands) in [(vKuhn, 2, 60), (vLeduc, 2, 36),
-        (vHoldem, 2, 30), (vHoldem, 6, 16)]:
+        (vHoldem, 2, 30), (vHoldem, 6, 14)]:
       var config = fixtureConfig(variant, seats, hands = hands)
       config.sampled = false
       check sampleEpisode(config).hands == hands

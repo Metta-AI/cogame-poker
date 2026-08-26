@@ -21,7 +21,7 @@ Three rungs of the same zero-sum game.
 | `kuhn` | 2 | OpenSpiel `kuhn_poker`: 3 cards, one round, one wager, 12 information sets | 60 (30 pairs) |
 | `leduc` | 2 | OpenSpiel `leduc_poker`: 6 cards, two rounds, one board card, two wagers per round | 36 (18 pairs) |
 | `holdem-hu` | 2 | full no-limit Texas Hold'em, blinds 1/2 | 30 (15 pairs) |
-| `holdem-6max` | 6 | the same, six-handed, seating randomised from the seed | 16 (8 pairs) |
+| `holdem-6max` | 6 | the same, six-handed, seating randomised from the seed | 14 (7 pairs) |
 
 What is the same at every rung:
 

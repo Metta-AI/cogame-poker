@@ -20,13 +20,16 @@ export audit, cards, solve, types
 const
   ## An episode's whole model-call allowance (one call per decision). Poker is
   ## SEQUENTIAL: one seat is on decision at a time, so the budget is per
-  ## decision, not per turn. 220 x 3.0 s = 660 s, inside the 720 s play budget.
+  ## decision, not per turn. 220 x 3.0 s = 660 s, exactly the soft guard.
   EpisodeDecisionBudget* = 220
   MinHands* = 2
   GameVersion* = 1
   ## Share of the platform's episode timeout spent playing, and the hard stop.
-  PlayBudgetFraction* = 0.60
-  HardDeadlineFraction* = 0.70
+  ## The whole episode -- play, settle and score -- must land inside 60% of
+  ## the timeout, so the HARD stop is 0.60 (720 s of 1200 s) and the soft one
+  ## sits a pair-boundary's worth of play below it at 0.55 (660 s).
+  PlayBudgetFraction* = 0.55
+  HardDeadlineFraction* = 0.60
   ## The game container is NOT given COWORLD_TIMEOUT_SECONDS; assume this.
   DefaultEpisodeTimeoutSeconds* = 1200.0
   ## Inter-decision wall spacing floor (the Bedrock sidecar caps an episode at
