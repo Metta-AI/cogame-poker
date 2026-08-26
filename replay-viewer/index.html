@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>OS Poker — Replay</title>
+<link rel="stylesheet" href="./chrome.css">
+</head>
+<body>
+<div id="layout">
+  <div id="stage">
+    <div id="topband">
+      <div id="wordmark">PO<span>KER</span></div>
+      <div id="clock">HAND 1</div>
+      <div id="topright">
+        <span id="statuschip">replay</span>
+        <button id="feedtoggle">LOG »</button>
+        <div id="rungchip"></div>
+      </div>
+    </div>
+    <div id="scorebug"></div>
+    <div id="board-wrap">
+      <canvas id="table" width="960" height="640"></canvas>
+      <div id="lightpool"></div>
+      <div id="grain"></div>
+      <div id="endscreen"></div>
+      <div id="auditcard"></div>
+    </div>
+    <div id="transport">
+      <div class="scrub" id="scrub"></div>
+      <div class="tbar">
+        <button class="tbtn" id="play">❚❚</button>
+        <span class="tpos" id="pos">0 / 0</span>
+      </div>
+    </div>
+    </div>
+  <div id="feed"></div>
+</div>
+<div id="loading">LOADING REPLAY…</div>
+<script src="./renderer.js"></script>
+<script src="./poker_replay.js"></script>
+<script src="./static_replay.js"></script>
+<script>
+  var canvas = document.getElementById("table");
+  function fit() {
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+  }
+  window.addEventListener("resize", fit);
+  window.addEventListener("load", fit);
+  fit();
+  PokerRenderer.bindFeedToggle(document.getElementById("feedtoggle"), true);
+  // attach happens in static_replay.js once the wasm module loads
+</script>
+<script>
+  // ==== poker game block (appended; nothing above this line is edited) ====
+  // relayout() publishes the transport band height and a HUD scale on :root.
+  // Every overlay this game adds is anchored bottom: var(--band), so nothing
+  // can be drawn over the transport by construction; --hudscale is what makes
+  // the 360px featured-match iframe legible.
+  function relayout() {
+    var transport = document.getElementById("transport");
+    var stage = document.getElementById("stage");
+    var band = transport ? transport.offsetHeight : 0;
+    var width = stage && stage.clientWidth ? stage.clientWidth :
+      window.innerWidth;
+    var root = document.documentElement;
+    root.style.setProperty("--band", band + "px");
+    root.style.setProperty("--hudscale",
+      String(Math.max(0.72, Math.min(width / 960, 1))));
+    fit();
+  }
+  // On load, on resize, and on every feed toggle (which dispatches resize).
+  window.addEventListener("load", relayout);
+  window.addEventListener("resize", relayout);
+  relayout();
+</script>
+</body>
+</html>
