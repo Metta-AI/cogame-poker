@@ -430,6 +430,8 @@ jobs:
             --timeout 90 \
             --soak 12 \
             --strict-text-bounds
+          mv viewer-smoke.png viewer-smoke-sixmax.png 2>/dev/null || true
+          mv viewer-smoke.json viewer-smoke-sixmax.json 2>/dev/null || true
 
       - name: Upload the viewer smoke evidence
         # Always: the screenshot and the JSON are most useful when the job is red.
@@ -438,10 +440,12 @@ jobs:
         with:
           name: viewer-smoke
           path: |
-            viewer-smoke.png
-            viewer-smoke.json
             viewer-smoke-cert.png
             viewer-smoke-cert.json
+            viewer-smoke-sixmax.png
+            viewer-smoke-sixmax.json
+            viewer-smoke.png
+            viewer-smoke.json
           if-no-files-found: warn
           retention-days: 14
 
