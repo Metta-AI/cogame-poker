@@ -46,10 +46,7 @@ suite "top-level shape":
     let runnable = game["runnable"]
     check runnable["type"].getStr() == "game"
     check runnable["run"].getElems() == @[%"/bin/poker"]
-    ## The LLM runs GAME-side, so the GAME runnable needs the key (hive,
-    ## 2026-08-23), and the namespace is game.name, not the repo slug.
-    check runnable["env"]["ANTHROPIC_API_KEY_URI"].getStr() ==
-      "secret://coworld/" & game["name"].getStr() & "/anthropic_api_key"
+    check not runnable.hasKey("env")
     check game["name"].getStr() == "poker"
 
 suite "protocols and docs":
