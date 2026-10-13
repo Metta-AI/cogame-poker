@@ -3,7 +3,7 @@
 ## and asks Claude what the cog says and does with its chips.
 ##
 ## Credentials, in order of preference:
-##   Bedrock sidecar / bearer token   - hosted pods
+##   COWORLD_LLM_ENDPOINT (hosted), then local Bedrock / bearer token   - hosted pods
 ##   ANTHROPIC_API_KEY                - the key itself
 ##   ANTHROPIC_API_KEY_URI            - a URI holding the key
 ## With no credentials every decision falls back to the always-legal scripted
@@ -36,11 +36,12 @@ type
     error*: string     ## why, rune-truncated for the replay
 
   LlmTransport = enum
-    ltNone, ltBedrock, ltAnthropic
+    ltNone, ltSidecar, ltBedrock, ltAnthropic
 
   LlmClient* = ref object
     curl: Curly
     transport: LlmTransport
+    sidecarEndpoint: string
     apiKey: string          ## anthropic transport
     bedrockEndpoint: string ## bedrock transport: sidecar or public host
     bedrockModels: seq[string]  ## candidates, tried in order on denial
@@ -107,6 +108,13 @@ proc newLlmClient*(config: GameConfig): LlmClient =
     lastCall: getMonoTime(),
     rand: initRand(int64(config.seed) xor 0x5EED)
   )
+  let sidecarEndpoint = getEnv("COWORLD_LLM_ENDPOINT").strip()
+  if sidecarEndpoint.len > 0:
+    result.transport = ltSidecar
+    result.sidecarEndpoint = sidecarEndpoint.strip(chars = {'/'}, leading = false)
+    result.model = getEnv("COWORLD_LLM_MODEL", "anthropic/claude-haiku-4.5")
+    result.curl = newCurly()
+    return
   let bedrockEndpoint = getEnv("AWS_ENDPOINT_URL_BEDROCK_RUNTIME").strip()
   let bedrockToken = getEnv("AWS_BEARER_TOKEN_BEDROCK").strip()
   if bedrockEndpoint.len > 0 or bedrockToken.len > 0:
@@ -615,7 +623,8 @@ proc extractJsonObject*(text: string): JsonNode =
     raise newException(PokerError, "no JSON object in response")
   parseJson(text[start .. stop])
 
-proc completeText(client: LlmClient, system, user: string): string =
+proc requestFor(client: LlmClient, system, user: string, slot: int):
+    tuple[url: string, headers: HttpHeaders, body: string] =
   var body = %*{
     "max_tokens": client.maxOutputTokens,
     "system": system,
@@ -629,13 +638,23 @@ proc completeText(client: LlmClient, system, user: string): string =
     if client.bedrockToken.len > 0:
       headers["authorization"] = "Bearer " & client.bedrockToken
     url = client.bedrockUrl()
+  elif client.transport == ltSidecar:
+    body["model"] = %client.model
+    headers["X-Coworld-Player-Slot"] = $slot
+    headers["anthropic-version"] = AnthropicVersion
+    url = client.sidecarEndpoint & "/v1/messages"
   else:
     body["model"] = %client.model
     headers["x-api-key"] = client.apiKey
     headers["anthropic-version"] = AnthropicVersion
     url = AnthropicUrl
   ## `output_config.effort` is NOT sent: Haiku 4.5 rejects it.
-  let response = client.curl.post(url, headers, $body, client.timeoutSeconds)
+  (url, headers, $body)
+
+proc completeText(client: LlmClient, system, user: string, slot: int): string =
+  let request = client.requestFor(system, user, slot)
+  let url = request.url
+  let response = client.curl.post(url, request.headers, request.body, client.timeoutSeconds)
   if response.code == 401 or response.code == 403:
     let detail = response.body[0 .. min(response.body.high, 400)]
     if "Model access is denied" in response.body and
@@ -758,7 +777,7 @@ proc decide*(
       user.add("\nYour previous reply was invalid. Respond with ONLY the " &
         "requested JSON object and a legal action with a legal amount.")
     try:
-      let payload = extractJsonObject(client.completeText(system, user))
+      let payload = extractJsonObject(client.completeText(system, user, seat))
       return parseDecision(sim, seat, payload)
     except CatchableError as error:
       lastError = error.msg
